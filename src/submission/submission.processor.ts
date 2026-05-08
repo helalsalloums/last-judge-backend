@@ -1,10 +1,10 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
-import { JudgeService } from "./judge.service";
+import { JudgeService } from "src/judge/judge.service";
 
 @Processor('submission')
 export class SubmissionProcessor extends WorkerHost {
-  constructor(private judgeService: JudgeService) {
+  constructor(private readonly judgeService: JudgeService) {
     super()
   }
 

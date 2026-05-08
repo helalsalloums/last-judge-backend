@@ -3,12 +3,12 @@ import { SubmissionController } from './submission.controller';
 import { SubmissionService } from './submission.service';
 import { QueueModule } from 'src/queue/queue.module';
 import { SubmissionProcessor } from './submission.processor';
-import { JudgeService } from './judge.service';
 import { SubmissionGateway } from './submission.gateway';
+import { JudgeModule } from 'src/judge/judge.module';
 
 @Module({
   controllers: [SubmissionController],
-  providers: [SubmissionService, SubmissionProcessor, JudgeService, SubmissionGateway],
-  imports: [QueueModule]
+  providers: [SubmissionService, SubmissionProcessor, SubmissionGateway],
+  imports: [QueueModule, JudgeModule]
 })
 export class SubmissionModule { }

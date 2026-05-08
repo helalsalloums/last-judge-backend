@@ -2,13 +2,14 @@ import { Inject, Injectable } from "@nestjs/common";
 import { writeFile } from "fs/promises";
 import { PrismaService } from "src/prisma/prisma.service";
 import {
-  ExecutionEngine,
+  CompileResult,
   ProcessResult,
 } from "./execution/execution-engine.interface";
+import type { ExecutionEngine } from "./execution/execution-engine.interface";
 import { SubmissionStatusService } from "./status/submission-status.service";
 import { WorkspaceService } from "./workspace/workspace.service";
 
-type JudgeVerdict = "AC" | "WA" | "TLE" | "CE" | "RE";
+type JudgeVerdict = "AC" | "WA" | "TLE" | "MLE" | "CE" | "RE";
 
 @Injectable()
 export class JudgeService {
@@ -60,11 +61,13 @@ export class JudgeService {
         outputFile: workspace.executableFile,
         timeLimitMs: 5000,
         memoryLimitMb: 512,
+        language: submission.language,
       });
 
-      if (!compileResult.ok) {
-        await this.submissionStatusService.setStatus(submissionId, "CE");
-        return "CE";
+      const compileVerdict = this.evaluateCompileResult(compileResult);
+      if (compileVerdict) {
+        await this.submissionStatusService.setStatus(submissionId, compileVerdict);
+        return compileVerdict;
       }
 
       for (let i = 0; i < testCases.length; i++) {
@@ -79,6 +82,7 @@ export class JudgeService {
           stdin: testCases[i].input,
           timeLimitMs: problem.timeLimit,
           memoryLimitMb: problem.memoryLimit,
+          language: submission.language,
         });
 
         const verdict = this.evaluateRunResult(runResult, testCases[i].output);
@@ -103,8 +107,24 @@ export class JudgeService {
     result: ProcessResult,
     expectedOutput: string,
   ): JudgeVerdict {
+    switch (result.terminationReason) {
+      case "TIME_LIMIT_EXCEEDED":
+        return "TLE";
+      case "MEMORY_LIMIT_EXCEEDED":
+        return "MLE";
+      case "SANDBOX_ERROR":
+      case "RUNTIME_ERROR":
+        return "RE";
+      default:
+        break;
+    }
+
     if (result.timedOut) {
       return "TLE";
+    }
+
+    if (this.looksLikeMemoryLimitExceeded(result)) {
+      return "MLE";
     }
 
     if (result.exitCode !== 0) {
@@ -116,6 +136,36 @@ export class JudgeService {
     }
 
     return "AC";
+  }
+
+  private evaluateCompileResult(result: CompileResult): JudgeVerdict | null {
+    if (result.ok) {
+      return null;
+    }
+
+    if (result.terminationReason === "TIME_LIMIT_EXCEEDED") {
+      return "TLE";
+    }
+
+    if (result.terminationReason === "MEMORY_LIMIT_EXCEEDED") {
+      return "MLE";
+    }
+
+    return "CE";
+  }
+
+  private looksLikeMemoryLimitExceeded(result: ProcessResult): boolean {
+    const memoryPatterns = [
+      /std::bad_alloc/i,
+      /bad alloc/i,
+      /cannot allocate memory/i,
+      /out of memory/i,
+      /memory limit/i,
+      /ENOMEM/i,
+      /oom/i,
+    ];
+
+    return memoryPatterns.some((pattern) => pattern.test(result.stderr));
   }
 
   private outputsMatch(actual: string, expected: string): boolean {

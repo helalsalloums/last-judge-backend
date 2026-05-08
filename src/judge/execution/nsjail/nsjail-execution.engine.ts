@@ -1,43 +1,63 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { spawn } from "child_process";
 import {
-  CompileRequest,
   CompileResult,
-  ExecutionEngine,
   ProcessResult,
-  RunRequest,
 } from "../execution-engine.interface";
+import type { ExecutionEngine } from "../execution-engine.interface";
 import { NsJailCommandBuilder } from "./nsjail-command.builder";
+import { NSJAIL_CONFIG } from "./nsjail.config";
+import type { NsJailConfig } from "./nsjail.config";
+import { NsJailResultParser } from "./nsjail-result.parser";
 
 @Injectable()
 export class NsJailExecutionEngine implements ExecutionEngine {
   constructor(
     private readonly builder: NsJailCommandBuilder,
+    private readonly resultParser: NsJailResultParser,
+    @Inject(NSJAIL_CONFIG)
+    private readonly config: NsJailConfig,
   ) { }
 
-  async compile(req: CompileRequest): Promise<CompileResult> {
-    const { command, args } = this.builder.buildCompileCommand(req);
-    const result = await this.spawnAndCollect(
-      command,
-      args,
-      undefined,
-      req.timeLimitMs,
-    );
+  async compile(req: Parameters<ExecutionEngine["compile"]>[0]): Promise<CompileResult> {
+    const commandSpec = this.builder.buildCompileCommand(req);
+
+    if (!commandSpec) {
+      return {
+        stdout: "",
+        stderr: "",
+        exitCode: 0,
+        signal: null,
+        timedOut: false,
+        durationMs: 0,
+        terminationReason: "SUCCESS",
+        ok: true,
+      };
+    }
+
+    const result = await this.spawnAndCollect(commandSpec.command, commandSpec.args, undefined, req.timeLimitMs);
+    const terminationReason = this.resultParser.classify(result);
 
     return {
       ...result,
-      ok: !result.timedOut && result.exitCode === 0,
+      terminationReason,
+      ok: terminationReason === "SUCCESS",
     };
   }
 
-  async run(req: RunRequest): Promise<ProcessResult> {
+  async run(req: Parameters<ExecutionEngine["run"]>[0]): Promise<ProcessResult> {
     const { command, args } = this.builder.buildRunCommand(req);
-    return this.spawnAndCollect(
+    const result = await this.spawnAndCollect(
       command,
       args,
       req.stdin,
       req.timeLimitMs,
     );
+
+    return {
+      ...result,
+      terminationReason: this.resultParser.classify(result),
+    };
   }
 
   private async spawnAndCollect(
@@ -48,6 +68,7 @@ export class NsJailExecutionEngine implements ExecutionEngine {
   ): Promise<ProcessResult> {
     return new Promise((resolve, reject) => {
       const startedAt = Date.now();
+      const watchdogMs = Math.max(timeoutMs + this.config.watchdogGraceMs, 3000);
 
       const proc = spawn(command, args, {
         stdio: ["pipe", "pipe", "pipe"],
@@ -81,9 +102,13 @@ export class NsJailExecutionEngine implements ExecutionEngine {
       const timer = setTimeout(() => {
         timedOut = true;
         proc.kill("SIGKILL");
-      }, timeoutMs);
+      }, watchdogMs);
 
-      if (stdin) {
+      proc.stdin.on("error", () => {
+        // Input pipe can close early when child exits; this is expected.
+      });
+
+      if (stdin !== undefined) {
         proc.stdin.write(stdin);
       }
       proc.stdin.end();

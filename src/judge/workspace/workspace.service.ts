@@ -23,7 +23,7 @@ export class WorkspaceService {
 
     return {
       rootDir,
-      sourceFile: join(rootDir, "main.cpp"),
+      sourceFile: join(rootDir, "main.src"),
       executableFile: join(rootDir, "main.out"),
       stdinFile: join(rootDir, "stdin.txt"),
       stdoutFile: join(rootDir, "stdout.txt"),

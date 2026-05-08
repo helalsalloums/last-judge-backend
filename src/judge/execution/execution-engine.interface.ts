@@ -4,6 +4,7 @@ export interface CompileRequest {
   outputFile: string;
   timeLimitMs: number;
   memoryLimitMb: number;
+  language?: string;
 }
 
 export interface RunRequest {
@@ -12,7 +13,15 @@ export interface RunRequest {
   stdin: string;
   timeLimitMs: number;
   memoryLimitMb: number;
+  language?: string;
 }
+
+export type ProcessTerminationReason =
+  | "SUCCESS"
+  | "TIME_LIMIT_EXCEEDED"
+  | "MEMORY_LIMIT_EXCEEDED"
+  | "RUNTIME_ERROR"
+  | "SANDBOX_ERROR";
 
 export interface ProcessResult {
   stdout: string;
@@ -21,6 +30,7 @@ export interface ProcessResult {
   signal: NodeJS.Signals | null;
   timedOut: boolean;
   durationMs: number;
+  terminationReason?: ProcessTerminationReason;
 }
 
 export interface CompileResult extends ProcessResult {
