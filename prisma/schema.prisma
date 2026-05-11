@@ -46,8 +46,11 @@ model Submission {
   createdAt   DateTime  @default(now())
   problem     Problem   @relation(fields: [problemId], references: [id])
   userId      Int
-  user        User      @relation(fields : [userId] , references : [id] , onDelete:Cascade)
-}
+    user        User      @relation(fields: [userId], references: [id])
+  contestId   Int?
+  contest     Contest?  @relation(fields: [contestId], references: [id], onDelete: SetNull)
+
+  }
 
 model Problem {
   id          Int       @id @default(autoincrement())
@@ -79,6 +82,7 @@ model Contest {
   createdAt   DateTime @default(now())
   problems    ContestProblem[]
   registrations ContestRegistration[]
+  submissions Submission[]
 }
 
 model ContestProblem {
