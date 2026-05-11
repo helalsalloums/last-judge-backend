@@ -10,6 +10,8 @@ export interface NsJailConfig {
   gid: number;
   disableNetwork: boolean;
   mountProc: boolean;
+  readOnlyBindMounts: string[];
+  environmentVariables: string[];
 }
 
 export const NSJAIL_CONFIG = Symbol("NSJAIL_CONFIG");
@@ -26,4 +28,15 @@ export const nsjailConfig: NsJailConfig = {
   gid: 99999,
   disableNetwork: true,
   mountProc: false,
+    readOnlyBindMounts: [             // ADD
+    "/usr",
+    "/bin",
+    "/lib",
+    "/lib64",
+    "/etc",
+  ],
+  environmentVariables: [
+    "PATH=/usr/bin:/bin",
+  ],
+
 };

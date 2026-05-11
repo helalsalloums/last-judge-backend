@@ -56,34 +56,36 @@ export class NsJailCommandBuilder {
     };
   }
 
-  private buildBaseArgs(
-    workspaceDir: string,
-    timeLimitMs: number,
-    memoryLimitMb: number,
-  ): string[] {
-    const timeLimitSec = Math.max(1, Math.ceil(timeLimitMs / 1000));
+ private buildBaseArgs(
+  workspaceDir: string,
+  timeLimitMs: number,
+  memoryLimitMb: number, // hehe
+): string[] {
+  const timeLimitSec = Math.max(1, Math.ceil(timeLimitMs / 1000));
 
-    const args = [
-      "--mode",
-      "o",
-      "--cwd",
-      workspaceDir,
-      "--time_limit",
-      String(timeLimitSec),
-      "--rlimit_as",
-      String(memoryLimitMb),
-      "--max_cpus",
-      "1",
-      "--user",
-      String(this.config.uid),
-      "--group",
-      String(this.config.gid),
-    ];
+  const args = [
+    "--mode", "o",
+    "--cwd", workspaceDir,
+    "--bindmount", workspaceDir,
+    "--time_limit", String(timeLimitSec),
+    "--rlimit_as", String(memoryLimitMb),
+    "--max_cpus", "1",
+    "--user", String(this.config.uid),
+    "--group", String(this.config.gid),
+  ];
 
-    if (this.config.disableNetwork) {
-      args.push("--disable_clone_newnet");
-    }
-
-    return args;
+  for (const mount of this.config.readOnlyBindMounts) {
+    args.push("--bindmount_ro", mount);
   }
+
+  for (const env of this.config.environmentVariables) {
+    args.push("--env", env);
+  }
+
+  if (this.config.disableNetwork) {
+    args.push("--disable_clone_newnet");
+  }
+
+  return args;
+}
 }

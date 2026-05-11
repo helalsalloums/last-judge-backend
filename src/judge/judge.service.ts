@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { writeFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { PrismaService } from "src/prisma/prisma.service";
 import {
   CompileResult,
@@ -52,6 +52,8 @@ export class JudgeService {
 
     try {
       await writeFile(workspace.sourceFile, submission.code);
+      const written = await readFile(workspace.sourceFile, 'utf-8');
+      console.log('Written source file contents:', written);
 
       await this.submissionStatusService.setStatus(submissionId, "Compiling");
 
@@ -63,12 +65,16 @@ export class JudgeService {
         memoryLimitMb: 512,
         language: submission.language,
       });
+      
+      console.log('Compile result:', JSON.stringify(compileResult, null, 2));
 
       const compileVerdict = this.evaluateCompileResult(compileResult);
       if (compileVerdict) {
         await this.submissionStatusService.setStatus(submissionId, compileVerdict);
         return compileVerdict;
       }
+
+      
 
       for (let i = 0; i < testCases.length; i++) {
         await this.submissionStatusService.setStatus(
@@ -86,7 +92,7 @@ export class JudgeService {
         });
 
         const verdict = this.evaluateRunResult(runResult, testCases[i].output);
-
+        console.log(verdict);
         if (verdict !== "AC") {
           await this.submissionStatusService.setStatus(submissionId, verdict);
           return verdict;
@@ -95,7 +101,8 @@ export class JudgeService {
 
       await this.submissionStatusService.setStatus(submissionId, "Accepted");
       return "AC";
-    } catch {
+    } catch(error) {
+      console.error('Judge caught error:', error);
       await this.submissionStatusService.setStatus(submissionId, "Runtime Error");
       return "RE";
     } finally {

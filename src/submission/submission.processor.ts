@@ -10,9 +10,14 @@ export class SubmissionProcessor extends WorkerHost {
 
   async process(job: Job) {
     if (job.name === 'judge') {
-      console.log('Job received', job.data);
-      const result = await this.judgeService.judge(job.data.submissionId);
-      console.log(result);
+      try {
+        console.log('Job received', job.data);
+        const result = await this.judgeService.judge(job.data.submissionId);
+        console.log(result);
+      } catch(err) {
+        console.error('Judge failed:', err);
+        throw err;
+      }
     }
   }
 }
