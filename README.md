@@ -1,10 +1,10 @@
-# Turbo Judge
+# Last Judge
 
 A competitive programming judge system built from scratch — like Codeforces, but engineered end-to-end by one developer.
 
 ## Overview
 
-Turbo Judge is a full-featured backend for a competitive programming platform. It handles user authentication, problem management, code submission, real-time judging, and contest management.
+Last Judge is a full-featured backend for a competitive programming platform. It handles user authentication, problem management, code submission, real-time judging, and contest management.
 
 The judge pipeline compiles and executes submitted C/C++ code in isolated child processes, enforces time and memory limits, and streams per-test-case verdicts to clients in real time via WebSockets.
 
